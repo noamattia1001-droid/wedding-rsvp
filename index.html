@@ -10,70 +10,100 @@
   <div class="bg-pattern"></div>
 
   <div class="rsvp-container">
-    <div class="rsvp-card glass" id="rsvpCard">
-
-      <!-- Header -->
-      <div class="ornament">~ ~ ~</div>
-      <h1 class="couple-names">
-        <span id="groomName">החתן</span>
-        <span class="heart">&hearts;</span>
-        <span id="brideName">הכלה</span>
-      </h1>
-      <div class="event-details">
-        <span class="detail-line" id="dateDisplay"></span>
-        <span class="detail-line" id="venueDisplay"></span>
-      </div>
-      <div class="divider"></div>
+    <div class="rsvp-card glass">
 
       <!-- Config Warning -->
       <div class="config-warning" id="configWarning">
         <strong>שימו לב:</strong> המערכת עדיין לא מחוברת ל-Google Sheets.<br>
-        יש להגדיר את כתובת ה-Script בקובץ <code>config.js</code>.<br>
-        ראו הוראות בקובץ <code>apps-script.gs</code>.
+        יש להגדיר את כתובת ה-Script בקובץ <code>config.js</code>.
       </div>
 
-      <!-- Form -->
-      <div id="formSection">
-        <h2 class="form-title">האם תגיעו לחגוג איתנו?</h2>
+      <!-- ===== STEP 1: Side Selection ===== -->
+      <div class="step active" id="step1">
+        <div class="ornament">~ ~ ~</div>
+        <h1 class="couple-names">
+          <span id="groomName"></span>
+          <span class="heart">&#9829;</span>
+          <span id="brideName"></span>
+        </h1>
+        <div class="event-details">
+          <span class="detail-line" id="dateDisplay"></span>
+          <span class="detail-line" id="venueDisplay"></span>
+        </div>
+        <div class="divider"></div>
+        <h2 class="step-title">מאיזה צד אתם?</h2>
+        <div class="side-cards">
+          <div class="side-card groom" onclick="chooseSide('groom')">
+            <div class="side-icon">&#9827;</div>
+            <h3>חתן</h3>
+            <p id="groomFamily"></p>
+          </div>
+          <div class="side-card bride" onclick="chooseSide('bride')">
+            <div class="side-icon">&#10047;</div>
+            <h3>כלה</h3>
+            <p id="brideFamily"></p>
+          </div>
+        </div>
+      </div>
 
-        <div class="attendance-toggle">
-          <button class="toggle-btn coming" onclick="setAttendance(true)" id="btnComing">
-            <span class="toggle-icon">&#10003;</span>
+      <!-- ===== STEP 2: Status Selection ===== -->
+      <div class="step" id="step2">
+        <button class="back-btn-top" onclick="goToStep(1)">&#8594; חזרה</button>
+        <div class="selected-side-label" id="sideLabel"></div>
+        <h2 class="step-title">מה הסטטוס?</h2>
+        <div class="status-buttons">
+          <button class="status-btn coming" onclick="chooseStatus('coming')">
+            <span class="status-icon">&#10003;</span>
             מגיע/ה
           </button>
-          <button class="toggle-btn not-coming" onclick="setAttendance(false)" id="btnNotComing">
-            <span class="toggle-icon">&#10007;</span>
+          <button class="status-btn not-coming" onclick="chooseStatus('not-coming')">
+            <span class="status-icon">&#10007;</span>
             לא מגיע/ה
           </button>
+          <button class="status-btn checking" onclick="chooseStatus('checking')">
+            <span class="status-icon">?</span>
+            עדיין בודק/ת
+          </button>
         </div>
+      </div>
 
-        <div class="form-fields hidden" id="formFields">
+      <!-- ===== STEP 3: Form ===== -->
+      <div class="step" id="step3">
+        <button class="back-btn-top" onclick="goToStep(2)">&#8594; חזרה</button>
+        <div class="selected-side-label" id="sideLabel2"></div>
+        <h2 class="step-title" id="formTitle"></h2>
+
+        <div class="form-fields">
           <div class="field-group">
             <label class="field-label" for="guestName">שם מלא</label>
             <input type="text" id="guestName" class="field-input" placeholder="הכניסו את השם שלכם" autocomplete="name">
           </div>
+          <div class="field-group" id="phoneGroup">
+            <label class="field-label" for="guestPhone">מספר טלפון</label>
+            <input type="tel" id="guestPhone" class="field-input" placeholder="050-0000000" autocomplete="tel" dir="ltr" style="text-align:right">
+          </div>
           <div class="field-group" id="platesGroup">
             <label class="field-label" for="plates">כמה מנות?</label>
-            <input type="number" id="plates" class="field-input" min="1" max="20" value="1" placeholder="מספר מנות">
+            <input type="number" id="plates" class="field-input" min="1" max="20" value="1">
           </div>
         </div>
 
-        <button class="submit-btn" id="submitBtn" onclick="submitRSVP()" style="display:none">
-          <span class="btn-text">שליחת אישור</span>
+        <button class="submit-btn" id="submitBtn" onclick="submitRSVP()">
+          <span class="btn-text">שליחה</span>
           <div class="spinner"></div>
         </button>
+
+        <div class="message error" id="errorMsg"></div>
       </div>
 
-      <!-- Thank You Screen -->
-      <div class="thank-you" id="thankYou">
-        <div class="check-icon confirmed" id="thankIcon">&#10003;</div>
-        <h2 id="thankTitle">תודה רבה!</h2>
-        <p id="thankMessage">האישור התקבל בהצלחה</p>
-        <button class="back-btn" onclick="resetForm()">שליחת אישור נוסף</button>
+      <!-- ===== STEP 4: Thank You ===== -->
+      <div class="step" id="step4">
+        <div class="thank-you-icon" id="thankIcon">&#10003;</div>
+        <h2 class="thank-title" id="thankTitle"></h2>
+        <p class="thank-message" id="thankMessage"></p>
+        <button class="reset-btn" onclick="resetAll()">שליחת אישור נוסף</button>
       </div>
 
-      <!-- Error Message -->
-      <div class="message error" id="errorMsg"></div>
     </div>
   </div>
 
@@ -81,54 +111,77 @@
 
   <script src="config.js"></script>
   <script>
-    let attending = null;
+    var selectedSide = null;
+    var selectedStatus = null;
 
     function init() {
       document.getElementById('groomName').textContent = CONFIG.GROOM_NAME;
       document.getElementById('brideName').textContent = CONFIG.BRIDE_NAME;
+      document.getElementById('groomFamily').textContent = CONFIG.GROOM_FAMILY;
+      document.getElementById('brideFamily').textContent = CONFIG.BRIDE_FAMILY;
 
-      const dateEl = document.getElementById('dateDisplay');
-      const venueEl = document.getElementById('venueDisplay');
-      if (CONFIG.WEDDING_DATE) dateEl.textContent = CONFIG.WEDDING_DATE;
-      if (CONFIG.VENUE) venueEl.textContent = CONFIG.VENUE;
-
+      if (CONFIG.WEDDING_DATE) {
+        document.getElementById('dateDisplay').textContent = CONFIG.WEDDING_DATE;
+      }
+      if (CONFIG.VENUE) {
+        document.getElementById('venueDisplay').textContent = CONFIG.VENUE;
+      }
       if (!CONFIG.SCRIPT_URL) {
         document.getElementById('configWarning').classList.add('show');
       }
     }
 
-    function setAttendance(isComing) {
-      attending = isComing;
-      const btnComing = document.getElementById('btnComing');
-      const btnNotComing = document.getElementById('btnNotComing');
-      const fields = document.getElementById('formFields');
-      const platesGroup = document.getElementById('platesGroup');
-      const submitBtn = document.getElementById('submitBtn');
+    function goToStep(num) {
+      document.querySelectorAll('.step').forEach(function(s) {
+        s.classList.remove('active');
+      });
+      document.getElementById('step' + num).classList.add('active');
+    }
 
-      btnComing.classList.toggle('active', isComing);
-      btnNotComing.classList.toggle('active', !isComing);
+    function chooseSide(side) {
+      selectedSide = side;
+      var label = side === 'groom'
+        ? CONFIG.GROOM_FAMILY
+        : CONFIG.BRIDE_FAMILY;
+      document.getElementById('sideLabel').textContent = label;
+      document.getElementById('sideLabel2').textContent = label;
+      goToStep(2);
+    }
 
-      fields.classList.remove('hidden');
-      fields.classList.add('visible');
-      platesGroup.style.display = isComing ? 'block' : 'none';
+    function chooseStatus(status) {
+      selectedStatus = status;
 
-      if (!isComing) {
-        document.getElementById('plates').value = 0;
+      var phoneGroup = document.getElementById('phoneGroup');
+      var platesGroup = document.getElementById('platesGroup');
+
+      if (status === 'coming') {
+        document.getElementById('formTitle').textContent = 'פרטי האורח';
+        phoneGroup.style.display = 'block';
+        platesGroup.style.display = 'block';
+        document.getElementById('plates').value = 1;
+      } else if (status === 'not-coming') {
+        document.getElementById('formTitle').textContent = 'חבל... נשמח לדעת מי';
+        phoneGroup.style.display = 'none';
+        platesGroup.style.display = 'none';
       } else {
+        document.getElementById('formTitle').textContent = 'פרטי האורח';
+        phoneGroup.style.display = 'block';
+        platesGroup.style.display = 'block';
         document.getElementById('plates').value = 1;
       }
 
-      submitBtn.style.display = 'block';
-      submitBtn.querySelector('.btn-text').textContent = isComing ? 'אישור הגעה' : 'שליחת תשובה';
+      document.getElementById('guestName').value = '';
+      document.getElementById('guestPhone').value = '';
+      document.getElementById('errorMsg').classList.remove('show');
+      goToStep(3);
+      document.getElementById('guestName').focus();
     }
 
     async function submitRSVP() {
-      const name = document.getElementById('guestName').value.trim();
-      const plates = parseInt(document.getElementById('plates').value) || 0;
-      const btn = document.getElementById('submitBtn');
-      const errorMsg = document.getElementById('errorMsg');
-
-      errorMsg.classList.remove('show');
+      var name = document.getElementById('guestName').value.trim();
+      var phone = document.getElementById('guestPhone').value.trim();
+      var plates = parseInt(document.getElementById('plates').value) || 0;
+      var btn = document.getElementById('submitBtn');
 
       if (!name) {
         showError('נא להזין שם מלא');
@@ -136,13 +189,19 @@
         return;
       }
 
-      if (attending && plates < 1) {
+      if (selectedStatus !== 'not-coming' && !phone) {
+        showError('נא להזין מספר טלפון');
+        document.getElementById('guestPhone').focus();
+        return;
+      }
+
+      if (selectedStatus !== 'not-coming' && plates < 1) {
         showError('נא לבחור מספר מנות');
         return;
       }
 
       if (!CONFIG.SCRIPT_URL) {
-        showError('המערכת לא מחוברת. יש להגדיר את כתובת ה-Script בקובץ config.js');
+        showError('המערכת לא מחוברת. הגדירו את SCRIPT_URL בקובץ config.js');
         return;
       }
 
@@ -150,15 +209,17 @@
       btn.disabled = true;
 
       try {
-        const params = new URLSearchParams({
+        var params = new URLSearchParams({
           action: 'add',
+          side: selectedSide,
           name: name,
-          plates: attending ? plates : 0,
-          attending: attending ? 'yes' : 'no'
+          phone: selectedStatus !== 'not-coming' ? phone : '',
+          plates: selectedStatus !== 'not-coming' ? plates : 0,
+          status: selectedStatus
         });
 
-        const response = await fetch(CONFIG.SCRIPT_URL + '?' + params.toString());
-        const result = await response.json();
+        var response = await fetch(CONFIG.SCRIPT_URL + '?' + params.toString());
+        var result = await response.json();
 
         if (result.success) {
           showThankYou();
@@ -174,59 +235,57 @@
     }
 
     function showThankYou() {
-      document.getElementById('formSection').style.display = 'none';
-      document.getElementById('configWarning').style.display = 'none';
-      const thankYou = document.getElementById('thankYou');
-      const icon = document.getElementById('thankIcon');
-      const title = document.getElementById('thankTitle');
-      const message = document.getElementById('thankMessage');
+      var icon = document.getElementById('thankIcon');
+      var title = document.getElementById('thankTitle');
+      var message = document.getElementById('thankMessage');
 
-      if (attending) {
-        icon.className = 'check-icon confirmed';
+      if (selectedStatus === 'coming') {
+        icon.className = 'thank-you-icon confirmed';
         icon.innerHTML = '&#10003;';
         title.textContent = 'נתראה בחתונה!';
         message.textContent = 'האישור התקבל, שמחים שאתם מגיעים';
         launchConfetti();
-      } else {
-        icon.className = 'check-icon declined';
+      } else if (selectedStatus === 'not-coming') {
+        icon.className = 'thank-you-icon declined';
         icon.innerHTML = '&#10007;';
         title.textContent = 'חבל שלא תגיעו';
-        message.textContent = 'התשובה נרשמה, אולי בפעם הבאה';
+        message.textContent = 'התשובה נרשמה, נחגוג בלעדיכם';
+      } else {
+        icon.className = 'thank-you-icon pending';
+        icon.innerHTML = '?';
+        title.textContent = 'קיבלנו!';
+        message.textContent = 'נחכה לעדכון שלכם. בהצלחה עם ההחלטה';
       }
 
-      thankYou.classList.add('show');
+      document.getElementById('configWarning').style.display = 'none';
+      goToStep(4);
     }
 
-    function resetForm() {
-      attending = null;
-      document.getElementById('formSection').style.display = 'block';
-      document.getElementById('thankYou').classList.remove('show');
-      document.getElementById('btnComing').classList.remove('active');
-      document.getElementById('btnNotComing').classList.remove('active');
-      document.getElementById('formFields').classList.add('hidden');
-      document.getElementById('formFields').classList.remove('visible');
-      document.getElementById('submitBtn').style.display = 'none';
+    function resetAll() {
+      selectedSide = null;
+      selectedStatus = null;
       document.getElementById('guestName').value = '';
+      document.getElementById('guestPhone').value = '';
       document.getElementById('plates').value = 1;
       document.getElementById('errorMsg').classList.remove('show');
-
       if (!CONFIG.SCRIPT_URL) {
         document.getElementById('configWarning').classList.add('show');
       }
+      goToStep(1);
     }
 
     function showError(msg) {
-      const el = document.getElementById('errorMsg');
+      var el = document.getElementById('errorMsg');
       el.textContent = msg;
       el.classList.add('show');
-      setTimeout(() => el.classList.remove('show'), 5000);
+      setTimeout(function() { el.classList.remove('show'); }, 5000);
     }
 
     function launchConfetti() {
-      const container = document.getElementById('confetti');
-      const colors = ['#c9a96e', '#e8d5a8', '#4a7c59', '#f5f0e8', '#a07d3a', '#fff'];
-      for (let i = 0; i < 60; i++) {
-        const piece = document.createElement('div');
+      var container = document.getElementById('confetti');
+      var colors = ['#c9a96e', '#e8d5a8', '#4a7c59', '#f5f0e8', '#a07d3a', '#fff'];
+      for (var i = 0; i < 60; i++) {
+        var piece = document.createElement('div');
         piece.className = 'confetti-piece';
         piece.style.left = Math.random() * 100 + '%';
         piece.style.backgroundColor = colors[Math.floor(Math.random() * colors.length)];
@@ -237,7 +296,7 @@
         piece.style.animationDelay = (Math.random() * 1.5) + 's';
         container.appendChild(piece);
       }
-      setTimeout(() => { container.innerHTML = ''; }, 5000);
+      setTimeout(function() { container.innerHTML = ''; }, 5000);
     }
 
     init();

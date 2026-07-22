@@ -10,6 +10,10 @@ const CONFIG = {
   GROOM_NAME: 'החתן',
   BRIDE_NAME: 'הכלה',
 
+  // משפחות
+  GROOM_FAMILY: 'משפחת עטיה',
+  BRIDE_FAMILY: 'משפחת אסולין',
+
   // תאריך החתונה
   WEDDING_DATE: '',
 

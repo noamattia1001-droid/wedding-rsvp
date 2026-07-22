@@ -6,7 +6,7 @@
 //
 //   1. היכנסו ל-Google Sheets וצרו גיליון חדש
 //   2. בשורה הראשונה כתבו את הכותרות:
-//      A1: שם  |  B1: מנות  |  C1: סטטוס  |  D1: תאריך
+//      A1: צד  |  B1: שם  |  C1: טלפון  |  D1: מנות  |  E1: סטטוס  |  F1: תאריך
 //   3. לחצו על Extensions > Apps Script
 //   4. מחקו את הקוד שמופיע והדביקו את כל הקוד הזה
 //   5. לחצו Save (Ctrl+S)
@@ -37,13 +37,22 @@ function doGet(e) {
 }
 
 function addRSVP(sheet, params) {
+  var side = params.side === 'groom' ? 'חתן' : 'כלה';
   var name = params.name || '';
+  var phone = params.phone || '';
   var plates = parseInt(params.plates) || 0;
-  var attending = params.attending === 'yes' ? 'מגיע' : 'לא מגיע';
+  var status;
+  if (params.status === 'coming') {
+    status = 'מגיע';
+  } else if (params.status === 'not-coming') {
+    status = 'לא מגיע';
+  } else {
+    status = 'עדיין בודק';
+  }
   var now = new Date();
   var date = Utilities.formatDate(now, Session.getScriptTimeZone(), 'dd/MM/yyyy HH:mm');
 
-  sheet.appendRow([name, plates, attending, date]);
+  sheet.appendRow([side, name, phone, plates, status, date]);
 
   return jsonResponse({ success: true });
 }
@@ -62,15 +71,17 @@ function listRSVP(sheet) {
   var data = [];
 
   if (lastRow > 1) {
-    var range = sheet.getRange(2, 1, lastRow - 1, 4);
+    var range = sheet.getRange(2, 1, lastRow - 1, 6);
     var values = range.getValues();
 
     for (var i = 0; i < values.length; i++) {
       data.push({
-        name: values[i][0],
-        plates: values[i][1],
-        attending: values[i][2],
-        date: values[i][3]
+        side: values[i][0],
+        name: values[i][1],
+        phone: values[i][2],
+        plates: values[i][3],
+        status: values[i][4],
+        date: values[i][5]
       });
     }
   }

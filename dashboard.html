@@ -10,7 +10,6 @@
   <div class="bg-pattern"></div>
 
   <div class="dashboard">
-    <!-- Header -->
     <div class="dash-header">
       <h1>דשבורד ניהול אישורים</h1>
       <p class="subtitle" id="eventSubtitle"></p>
@@ -21,11 +20,10 @@
       </div>
     </div>
 
-    <!-- Config Warning -->
     <div class="config-warning" id="configWarning" style="margin-bottom:24px">
       <strong>שימו לב:</strong> המערכת עדיין לא מחוברת ל-Google Sheets.<br>
       יש להגדיר את כתובת ה-Script בקובץ <code>config.js</code>.<br>
-      ראו הוראות בקובץ <code>apps-script.gs</code>.
+      מוצגים נתוני דוגמה.
     </div>
 
     <!-- Stats -->
@@ -42,6 +40,10 @@
         <div class="stat-number" id="totalNotComing">0</div>
         <div class="stat-label">לא מגיעים</div>
       </div>
+      <div class="stat-card glass warning">
+        <div class="stat-number" id="totalChecking">0</div>
+        <div class="stat-label">עדיין בודקים</div>
+      </div>
       <div class="stat-card glass">
         <div class="stat-number" id="totalPlates">0</div>
         <div class="stat-label">מנות</div>
@@ -52,9 +54,12 @@
     <div class="table-controls">
       <input type="text" class="search-input" id="searchInput" placeholder="חיפוש לפי שם..." oninput="filterTable()">
       <div class="filter-btns">
-        <button class="filter-btn active" onclick="setFilter('all')" id="filterAll">הכל</button>
-        <button class="filter-btn" onclick="setFilter('coming')" id="filterComing">מגיעים</button>
-        <button class="filter-btn" onclick="setFilter('not-coming')" id="filterNotComing">לא מגיעים</button>
+        <button class="filter-btn active" data-filter="all" onclick="setFilter('all', this)">הכל</button>
+        <button class="filter-btn" data-filter="coming" onclick="setFilter('coming', this)">מגיעים</button>
+        <button class="filter-btn" data-filter="not-coming" onclick="setFilter('not-coming', this)">לא מגיעים</button>
+        <button class="filter-btn" data-filter="checking" onclick="setFilter('checking', this)">בודקים</button>
+        <button class="filter-btn" data-filter="groom" onclick="setFilter('groom', this)">צד חתן</button>
+        <button class="filter-btn" data-filter="bride" onclick="setFilter('bride', this)">צד כלה</button>
       </div>
     </div>
 
@@ -70,7 +75,9 @@
         <thead>
           <tr>
             <th>#</th>
+            <th>צד</th>
             <th>שם</th>
+            <th>טלפון</th>
             <th>מנות</th>
             <th>סטטוס</th>
             <th>תאריך</th>
@@ -81,9 +88,9 @@
       </table>
     </div>
 
-    <!-- Empty State -->
+    <!-- Empty -->
     <div class="empty-state" id="emptyState" style="display:none">
-      <div class="empty-icon">&#128141;</div>
+      <div class="empty-icon">&#9829;</div>
       <p>עדיין אין אישורי הגעה</p>
       <p style="font-size:14px;margin-top:4px">שלחו את הקישור לאורחים כדי להתחיל</p>
     </div>
@@ -92,24 +99,23 @@
     <div class="actions-bar" style="margin-top:24px">
       <button class="action-btn" onclick="refreshData()">&#8635; רענון</button>
       <button class="action-btn" onclick="exportCSV()">&#128229; ייצוא CSV</button>
+      <button class="action-btn" onclick="exportPDF()">&#128196; הפקת PDF</button>
       <button class="action-btn primary" onclick="copyRSVPLink()">&#128279; העתקת קישור RSVP</button>
     </div>
   </div>
 
   <script src="config.js"></script>
   <script>
-    let allData = [];
-    let currentFilter = 'all';
-    let refreshTimer = null;
+    var allData = [];
+    var currentFilter = 'all';
 
     function init() {
-      const subtitle = document.getElementById('eventSubtitle');
-      const parts = [];
+      var parts = [];
       if (CONFIG.GROOM_NAME && CONFIG.BRIDE_NAME) {
         parts.push(CONFIG.GROOM_NAME + ' & ' + CONFIG.BRIDE_NAME);
       }
       if (CONFIG.WEDDING_DATE) parts.push(CONFIG.WEDDING_DATE);
-      subtitle.textContent = parts.join(' | ');
+      document.getElementById('eventSubtitle').textContent = parts.join(' | ');
 
       if (!CONFIG.SCRIPT_URL) {
         document.getElementById('configWarning').classList.add('show');
@@ -121,33 +127,33 @@
       document.getElementById('configWarning').style.display = 'none';
       refreshData();
       if (CONFIG.REFRESH_INTERVAL > 0) {
-        refreshTimer = setInterval(refreshData, CONFIG.REFRESH_INTERVAL);
+        setInterval(refreshData, CONFIG.REFRESH_INTERVAL);
       }
     }
 
     async function refreshData() {
       try {
-        const params = new URLSearchParams({ action: 'list' });
-        const response = await fetch(CONFIG.SCRIPT_URL + '?' + params.toString());
-        const result = await response.json();
-
+        var params = new URLSearchParams({ action: 'list' });
+        var response = await fetch(CONFIG.SCRIPT_URL + '?' + params.toString());
+        var result = await response.json();
         if (result.success) {
           allData = result.data || [];
           renderAll();
         }
       } catch (err) {
-        console.error('Failed to fetch data:', err);
+        console.error('Fetch error:', err);
       }
-
       document.getElementById('loading').classList.remove('show');
       updateLastRefresh();
     }
 
     function showDemoData() {
       allData = [
-        { name: 'דוגמה - דוד כהן', plates: 3, attending: 'מגיע', date: '22/07/2026 10:30' },
-        { name: 'דוגמה - שרה לוי', plates: 2, attending: 'מגיע', date: '22/07/2026 11:15' },
-        { name: 'דוגמה - יוסי מזרחי', plates: 0, attending: 'לא מגיע', date: '22/07/2026 12:00' },
+        { side: 'חתן', name: 'דוד עטיה', phone: '050-1234567', plates: 3, status: 'מגיע', date: '22/07/2026 10:30' },
+        { side: 'כלה', name: 'שרה אסולין', phone: '052-7654321', plates: 2, status: 'מגיע', date: '22/07/2026 11:15' },
+        { side: 'חתן', name: 'יוסי כהן', phone: '', plates: 0, status: 'לא מגיע', date: '22/07/2026 12:00' },
+        { side: 'כלה', name: 'מיכל לוי', phone: '054-9876543', plates: 4, status: 'עדיין בודק', date: '22/07/2026 13:00' },
+        { side: 'חתן', name: 'אבי מזרחי', phone: '053-1112233', plates: 2, status: 'מגיע', date: '22/07/2026 14:20' },
       ];
       renderAll();
     }
@@ -158,51 +164,55 @@
     }
 
     function updateStats() {
-      const coming = allData.filter(r => r.attending === 'מגיע');
-      const notComing = allData.filter(r => r.attending === 'לא מגיע');
-      const totalPlates = coming.reduce((sum, r) => sum + (parseInt(r.plates) || 0), 0);
+      var coming = allData.filter(function(r) { return r.status === 'מגיע'; });
+      var notComing = allData.filter(function(r) { return r.status === 'לא מגיע'; });
+      var checking = allData.filter(function(r) { return r.status === 'עדיין בודק'; });
+      var totalPlates = coming.reduce(function(sum, r) { return sum + (parseInt(r.plates) || 0); }, 0);
+      var checkingPlates = checking.reduce(function(sum, r) { return sum + (parseInt(r.plates) || 0); }, 0);
 
       document.getElementById('totalGuests').textContent = allData.length;
       document.getElementById('totalComing').textContent = coming.length;
       document.getElementById('totalNotComing').textContent = notComing.length;
-      document.getElementById('totalPlates').textContent = totalPlates;
+      document.getElementById('totalChecking').textContent = checking.length;
+      document.getElementById('totalPlates').textContent = totalPlates + (checkingPlates > 0 ? ' (+' + checkingPlates + '?)' : '');
     }
 
     function filterTable() {
-      const search = document.getElementById('searchInput').value.trim().toLowerCase();
-      let filtered = allData;
+      var search = document.getElementById('searchInput').value.trim().toLowerCase();
+      var filtered = allData;
 
       if (currentFilter === 'coming') {
-        filtered = filtered.filter(r => r.attending === 'מגיע');
+        filtered = filtered.filter(function(r) { return r.status === 'מגיע'; });
       } else if (currentFilter === 'not-coming') {
-        filtered = filtered.filter(r => r.attending === 'לא מגיע');
+        filtered = filtered.filter(function(r) { return r.status === 'לא מגיע'; });
+      } else if (currentFilter === 'checking') {
+        filtered = filtered.filter(function(r) { return r.status === 'עדיין בודק'; });
+      } else if (currentFilter === 'groom') {
+        filtered = filtered.filter(function(r) { return r.side === 'חתן'; });
+      } else if (currentFilter === 'bride') {
+        filtered = filtered.filter(function(r) { return r.side === 'כלה'; });
       }
 
       if (search) {
-        filtered = filtered.filter(r => r.name.toLowerCase().includes(search));
+        filtered = filtered.filter(function(r) {
+          return r.name.toLowerCase().includes(search) || (r.phone && r.phone.includes(search));
+        });
       }
 
       renderTable(filtered);
     }
 
-    function setFilter(filter) {
+    function setFilter(filter, btn) {
       currentFilter = filter;
-      document.querySelectorAll('.filter-btn').forEach(btn => btn.classList.remove('active'));
-      document.getElementById('filter' + capitalize(filter)).classList.add('active');
+      document.querySelectorAll('.filter-btn').forEach(function(b) { b.classList.remove('active'); });
+      btn.classList.add('active');
       filterTable();
     }
 
-    function capitalize(str) {
-      if (str === 'all') return 'All';
-      if (str === 'coming') return 'Coming';
-      if (str === 'not-coming') return 'NotComing';
-      return str;
-    }
-
     function renderTable(data) {
-      const container = document.getElementById('tableContainer');
-      const emptyState = document.getElementById('emptyState');
-      const tbody = document.getElementById('tableBody');
+      var container = document.getElementById('tableContainer');
+      var emptyState = document.getElementById('emptyState');
+      var tbody = document.getElementById('tableBody');
 
       if (data.length === 0) {
         container.style.display = 'none';
@@ -213,25 +223,36 @@
       container.style.display = 'block';
       emptyState.style.display = 'none';
 
-      tbody.innerHTML = data.map((row, i) => {
-        const isComing = row.attending === 'מגיע';
-        const statusClass = isComing ? 'confirmed' : 'declined';
-        const statusIcon = isComing ? '&#10003;' : '&#10007;';
-        const globalIndex = allData.indexOf(row);
+      tbody.innerHTML = data.map(function(row, i) {
+        var statusClass, statusIcon;
+        if (row.status === 'מגיע') {
+          statusClass = 'confirmed';
+          statusIcon = '&#10003;';
+        } else if (row.status === 'לא מגיע') {
+          statusClass = 'declined';
+          statusIcon = '&#10007;';
+        } else {
+          statusClass = 'pending';
+          statusIcon = '?';
+        }
+
+        var globalIndex = allData.indexOf(row);
 
         return '<tr>' +
           '<td>' + (i + 1) + '</td>' +
+          '<td><span class="side-badge">' + escapeHtml(row.side) + '</span></td>' +
           '<td><strong>' + escapeHtml(row.name) + '</strong></td>' +
-          '<td>' + (isComing ? row.plates : '-') + '</td>' +
-          '<td><span class="status-badge ' + statusClass + '">' + statusIcon + ' ' + row.attending + '</span></td>' +
-          '<td style="font-size:13px;color:var(--text-light)">' + (row.date || '') + '</td>' +
+          '<td style="direction:ltr;text-align:right">' + escapeHtml(row.phone || '-') + '</td>' +
+          '<td>' + (row.status !== 'לא מגיע' ? row.plates : '-') + '</td>' +
+          '<td><span class="status-badge ' + statusClass + '">' + statusIcon + ' ' + escapeHtml(row.status) + '</span></td>' +
+          '<td style="font-size:12px;color:var(--text-light)">' + escapeHtml(row.date || '') + '</td>' +
           '<td><button class="delete-btn" onclick="deleteRow(' + globalIndex + ')" title="מחיקה">&#128465;</button></td>' +
           '</tr>';
       }).join('');
     }
 
     async function deleteRow(index) {
-      if (!confirm('למחוק את האישור של ' + allData[index].name + '?')) return;
+      if (!confirm('למחוק את ' + allData[index].name + '?')) return;
 
       if (!CONFIG.SCRIPT_URL) {
         allData.splice(index, 1);
@@ -240,15 +261,10 @@
       }
 
       try {
-        const params = new URLSearchParams({
-          action: 'delete',
-          row: index + 2
-        });
-        const response = await fetch(CONFIG.SCRIPT_URL + '?' + params.toString());
-        const result = await response.json();
-        if (result.success) {
-          await refreshData();
-        }
+        var params = new URLSearchParams({ action: 'delete', row: index + 2 });
+        var response = await fetch(CONFIG.SCRIPT_URL + '?' + params.toString());
+        var result = await response.json();
+        if (result.success) await refreshData();
       } catch (err) {
         alert('שגיאה במחיקה');
       }
@@ -256,41 +272,111 @@
 
     function exportCSV() {
       if (allData.length === 0) return;
-
-      const bom = '﻿';
-      const headers = ['שם', 'מנות', 'סטטוס', 'תאריך'];
-      const rows = allData.map(r => [
-        r.name, r.plates, r.attending, r.date || ''
-      ].map(v => '"' + String(v).replace(/"/g, '""') + '"').join(','));
-
-      const csv = bom + headers.join(',') + '\n' + rows.join('\n');
-      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
+      var bom = '﻿';
+      var headers = ['צד', 'שם', 'טלפון', 'מנות', 'סטטוס', 'תאריך'];
+      var rows = allData.map(function(r) {
+        return [r.side, r.name, r.phone || '', r.plates, r.status, r.date || '']
+          .map(function(v) { return '"' + String(v).replace(/"/g, '""') + '"'; }).join(',');
+      });
+      var csv = bom + headers.join(',') + '\n' + rows.join('\n');
+      var blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+      var url = URL.createObjectURL(blob);
+      var a = document.createElement('a');
       a.href = url;
       a.download = 'rsvp-list.csv';
       a.click();
       URL.revokeObjectURL(url);
     }
 
+    function exportPDF() {
+      if (allData.length === 0) return;
+
+      var coming = allData.filter(function(r) { return r.status === 'מגיע'; });
+      var notComing = allData.filter(function(r) { return r.status === 'לא מגיע'; });
+      var checking = allData.filter(function(r) { return r.status === 'עדיין בודק'; });
+      var totalPlates = coming.reduce(function(s, r) { return s + (parseInt(r.plates) || 0); }, 0);
+
+      var title = CONFIG.GROOM_NAME + ' & ' + CONFIG.BRIDE_NAME;
+      if (CONFIG.WEDDING_DATE) title += ' | ' + CONFIG.WEDDING_DATE;
+
+      var html = '<!DOCTYPE html><html lang="he" dir="rtl"><head><meta charset="UTF-8">' +
+        '<title>רשימת אורחים - ' + escapeHtml(title) + '</title>' +
+        '<style>' +
+        '* { margin:0; padding:0; box-sizing:border-box; }' +
+        'body { font-family: "Segoe UI", Arial, sans-serif; padding:32px; direction:rtl; color:#2b2b2b; }' +
+        'h1 { font-size:22px; font-weight:400; text-align:center; margin-bottom:4px; }' +
+        '.subtitle { text-align:center; color:#777; font-size:14px; margin-bottom:20px; }' +
+        '.stats { display:flex; justify-content:center; gap:24px; margin-bottom:24px; padding:16px; background:#f9f5ef; border-radius:8px; }' +
+        '.stat { text-align:center; }' +
+        '.stat-num { font-size:24px; font-weight:600; color:#a07d3a; }' +
+        '.stat-num.green { color:#4a7c59; }' +
+        '.stat-num.red { color:#a63d40; }' +
+        '.stat-num.orange { color:#b8860b; }' +
+        '.stat-lbl { font-size:12px; color:#777; }' +
+        'h2 { font-size:16px; font-weight:500; margin:20px 0 8px; color:#a07d3a; border-bottom:1px solid #e8d5a8; padding-bottom:4px; }' +
+        'table { width:100%; border-collapse:collapse; margin-bottom:16px; }' +
+        'th { background:#a07d3a; color:#fff; padding:8px 10px; font-size:12px; text-align:right; }' +
+        'td { padding:7px 10px; font-size:13px; border-bottom:1px solid #eee; }' +
+        'tr:nth-child(even) { background:#faf7f2; }' +
+        '.footer { text-align:center; color:#bbb; font-size:11px; margin-top:24px; }' +
+        '@media print { body { padding:16px; } }' +
+        '</style></head><body>' +
+        '<h1>רשימת אורחים</h1>' +
+        '<p class="subtitle">' + escapeHtml(title) + '</p>' +
+        '<div class="stats">' +
+        '<div class="stat"><div class="stat-num">' + allData.length + '</div><div class="stat-lbl">סה"כ</div></div>' +
+        '<div class="stat"><div class="stat-num green">' + coming.length + '</div><div class="stat-lbl">מגיעים</div></div>' +
+        '<div class="stat"><div class="stat-num red">' + notComing.length + '</div><div class="stat-lbl">לא מגיעים</div></div>' +
+        '<div class="stat"><div class="stat-num orange">' + checking.length + '</div><div class="stat-lbl">בודקים</div></div>' +
+        '<div class="stat"><div class="stat-num">' + totalPlates + '</div><div class="stat-lbl">מנות</div></div>' +
+        '</div>';
+
+      function buildSection(titleText, rows) {
+        if (rows.length === 0) return '';
+        var s = '<h2>' + titleText + ' (' + rows.length + ')</h2>' +
+          '<table><tr><th>#</th><th>צד</th><th>שם</th><th>טלפון</th><th>מנות</th><th>תאריך</th></tr>';
+        rows.forEach(function(r, i) {
+          s += '<tr><td>' + (i + 1) + '</td><td>' + escapeHtml(r.side) + '</td><td>' + escapeHtml(r.name) + '</td>' +
+            '<td style="direction:ltr;text-align:right">' + escapeHtml(r.phone || '-') + '</td>' +
+            '<td>' + (r.status !== 'לא מגיע' ? r.plates : '-') + '</td>' +
+            '<td>' + escapeHtml(r.date || '') + '</td></tr>';
+        });
+        s += '</table>';
+        return s;
+      }
+
+      html += buildSection('מגיעים', coming);
+      html += buildSection('עדיין בודקים', checking);
+      html += buildSection('לא מגיעים', notComing);
+
+      var now = new Date().toLocaleString('he-IL');
+      html += '<p class="footer">הופק בתאריך ' + now + '</p>';
+      html += '</body></html>';
+
+      var win = window.open('', '_blank');
+      win.document.write(html);
+      win.document.close();
+      setTimeout(function() { win.print(); }, 400);
+    }
+
     function copyRSVPLink() {
-      const link = window.location.href.replace('dashboard.html', 'index.html').replace('dashboard', '');
-      navigator.clipboard.writeText(link).then(() => {
-        const btn = event.target.closest('.action-btn');
-        const original = btn.innerHTML;
+      var link = window.location.href.replace('dashboard.html', 'index.html').replace(/dashboard$/, '');
+      navigator.clipboard.writeText(link).then(function() {
+        var btn = event.target.closest('.action-btn');
+        var original = btn.innerHTML;
         btn.innerHTML = '&#10003; הקישור הועתק!';
-        setTimeout(() => { btn.innerHTML = original; }, 2000);
+        setTimeout(function() { btn.innerHTML = original; }, 2000);
       });
     }
 
     function updateLastRefresh() {
-      const now = new Date();
-      const time = now.toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' });
+      var now = new Date();
+      var time = now.toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' });
       document.getElementById('lastUpdate').textContent = '| עדכון אחרון: ' + time;
     }
 
     function escapeHtml(str) {
-      const div = document.createElement('div');
+      var div = document.createElement('div');
       div.textContent = str;
       return div.innerHTML;
     }
