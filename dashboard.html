@@ -46,7 +46,7 @@
       </div>
       <div class="stat-card glass">
         <div class="stat-number" id="totalPlates">0</div>
-        <div class="stat-label">מנות</div>
+        <div class="stat-label">אנשים</div>
       </div>
     </div>
 
@@ -78,7 +78,7 @@
             <th>צד</th>
             <th>שם</th>
             <th>טלפון</th>
-            <th>מנות</th>
+            <th>אנשים</th>
             <th>סטטוס</th>
             <th>תאריך</th>
             <th></th>
@@ -273,7 +273,7 @@
     function exportCSV() {
       if (allData.length === 0) return;
       var bom = '﻿';
-      var headers = ['צד', 'שם', 'טלפון', 'מנות', 'סטטוס', 'תאריך'];
+      var headers = ['צד', 'שם', 'טלפון', 'אנשים', 'סטטוס', 'תאריך'];
       var rows = allData.map(function(r) {
         return [r.side, r.name, r.phone || '', r.plates, r.status, r.date || '']
           .map(function(v) { return '"' + String(v).replace(/"/g, '""') + '"'; }).join(',');
@@ -328,13 +328,13 @@
         '<div class="stat"><div class="stat-num green">' + coming.length + '</div><div class="stat-lbl">מגיעים</div></div>' +
         '<div class="stat"><div class="stat-num red">' + notComing.length + '</div><div class="stat-lbl">לא מגיעים</div></div>' +
         '<div class="stat"><div class="stat-num orange">' + checking.length + '</div><div class="stat-lbl">בודקים</div></div>' +
-        '<div class="stat"><div class="stat-num">' + totalPlates + '</div><div class="stat-lbl">מנות</div></div>' +
+        '<div class="stat"><div class="stat-num">' + totalPlates + '</div><div class="stat-lbl">אנשים</div></div>' +
         '</div>';
 
       function buildSection(titleText, rows) {
         if (rows.length === 0) return '';
         var s = '<h2>' + titleText + ' (' + rows.length + ')</h2>' +
-          '<table><tr><th>#</th><th>צד</th><th>שם</th><th>טלפון</th><th>מנות</th><th>תאריך</th></tr>';
+          '<table><tr><th>#</th><th>צד</th><th>שם</th><th>טלפון</th><th>אנשים</th><th>תאריך</th></tr>';
         rows.forEach(function(r, i) {
           s += '<tr><td>' + (i + 1) + '</td><td>' + escapeHtml(r.side) + '</td><td>' + escapeHtml(r.name) + '</td>' +
             '<td style="direction:ltr;text-align:right">' + escapeHtml(r.phone || '-') + '</td>' +
