@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>אישור הגעה לחתונה</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="bg-pattern"></div>
+
+  <div class="rsvp-container">
+    <div class="rsvp-card glass" id="rsvpCard">
+
+      <!-- Header -->
+      <div class="ornament">~ ~ ~</div>
+      <h1 class="couple-names">
+        <span id="groomName">החתן</span>
+        <span class="heart">&hearts;</span>
+        <span id="brideName">הכלה</span>
+      </h1>
+      <div class="event-details">
+        <span class="detail-line" id="dateDisplay"></span>
+        <span class="detail-line" id="venueDisplay"></span>
+      </div>
+      <div class="divider"></div>
+
+      <!-- Config Warning -->
+      <div class="config-warning" id="configWarning">
+        <strong>שימו לב:</strong> המערכת עדיין לא מחוברת ל-Google Sheets.<br>
+        יש להגדיר את כתובת ה-Script בקובץ <code>config.js</code>.<br>
+        ראו הוראות בקובץ <code>apps-script.gs</code>.
+      </div>
+
+      <!-- Form -->
+      <div id="formSection">
+        <h2 class="form-title">האם תגיעו לחגוג איתנו?</h2>
+
+        <div class="attendance-toggle">
+          <button class="toggle-btn coming" onclick="setAttendance(true)" id="btnComing">
+            <span class="toggle-icon">&#10003;</span>
+            מגיע/ה
+          </button>
+          <button class="toggle-btn not-coming" onclick="setAttendance(false)" id="btnNotComing">
+            <span class="toggle-icon">&#10007;</span>
+            לא מגיע/ה
+          </button>
+        </div>
+
+        <div class="form-fields hidden" id="formFields">
+          <div class="field-group">
+            <label class="field-label" for="guestName">שם מלא</label>
+            <input type="text" id="guestName" class="field-input" placeholder="הכניסו את השם שלכם" autocomplete="name">
+          </div>
+          <div class="field-group" id="platesGroup">
+            <label class="field-label" for="plates">כמה מנות?</label>
+            <input type="number" id="plates" class="field-input" min="1" max="20" value="1" placeholder="מספר מנות">
+          </div>
+        </div>
+
+        <button class="submit-btn" id="submitBtn" onclick="submitRSVP()" style="display:none">
+          <span class="btn-text">שליחת אישור</span>
+          <div class="spinner"></div>
+        </button>
+      </div>
+
+      <!-- Thank You Screen -->
+      <div class="thank-you" id="thankYou">
+        <div class="check-icon confirmed" id="thankIcon">&#10003;</div>
+        <h2 id="thankTitle">תודה רבה!</h2>
+        <p id="thankMessage">האישור התקבל בהצלחה</p>
+        <button class="back-btn" onclick="resetForm()">שליחת אישור נוסף</button>
+      </div>
+
+      <!-- Error Message -->
+      <div class="message error" id="errorMsg"></div>
+    </div>
+  </div>
+
+  <div class="confetti-container" id="confetti"></div>
+
+  <script src="config.js"></script>
+  <script>
+    let attending = null;
+
+    function init() {
+      document.getElementById('groomName').textContent = CONFIG.GROOM_NAME;
+      document.getElementById('brideName').textContent = CONFIG.BRIDE_NAME;
+
+      const dateEl = document.getElementById('dateDisplay');
+      const venueEl = document.getElementById('venueDisplay');
+      if (CONFIG.WEDDING_DATE) dateEl.textContent = CONFIG.WEDDING_DATE;
+      if (CONFIG.VENUE) venueEl.textContent = CONFIG.VENUE;
+
+      if (!CONFIG.SCRIPT_URL) {
+        document.getElementById('configWarning').classList.add('show');
+      }
+    }
+
+    function setAttendance(isComing) {
+      attending = isComing;
+      const btnComing = document.getElementById('btnComing');
+      const btnNotComing = document.getElementById('btnNotComing');
+      const fields = document.getElementById('formFields');
+      const platesGroup = document.getElementById('platesGroup');
+      const submitBtn = document.getElementById('submitBtn');
+
+      btnComing.classList.toggle('active', isComing);
+      btnNotComing.classList.toggle('active', !isComing);
+
+      fields.classList.remove('hidden');
+      fields.classList.add('visible');
+      platesGroup.style.display = isComing ? 'block' : 'none';
+
+      if (!isComing) {
+        document.getElementById('plates').value = 0;
+      } else {
+        document.getElementById('plates').value = 1;
+      }
+
+      submitBtn.style.display = 'block';
+      submitBtn.querySelector('.btn-text').textContent = isComing ? 'אישור הגעה' : 'שליחת תשובה';
+    }
+
+    async function submitRSVP() {
+      const name = document.getElementById('guestName').value.trim();
+      const plates = parseInt(document.getElementById('plates').value) || 0;
+      const btn = document.getElementById('submitBtn');
+      const errorMsg = document.getElementById('errorMsg');
+
+      errorMsg.classList.remove('show');
+
+      if (!name) {
+        showError('נא להזין שם מלא');
+        document.getElementById('guestName').focus();
+        return;
+      }
+
+      if (attending && plates < 1) {
+        showError('נא לבחור מספר מנות');
+        return;
+      }
+
+      if (!CONFIG.SCRIPT_URL) {
+        showError('המערכת לא מחוברת. יש להגדיר את כתובת ה-Script בקובץ config.js');
+        return;
+      }
+
+      btn.classList.add('loading');
+      btn.disabled = true;
+
+      try {
+        const params = new URLSearchParams({
+          action: 'add',
+          name: name,
+          plates: attending ? plates : 0,
+          attending: attending ? 'yes' : 'no'
+        });
+
+        const response = await fetch(CONFIG.SCRIPT_URL + '?' + params.toString());
+        const result = await response.json();
+
+        if (result.success) {
+          showThankYou();
+        } else {
+          showError('אירעה שגיאה, נסו שוב');
+        }
+      } catch (err) {
+        showError('שגיאת חיבור. בדקו את החיבור לאינטרנט ונסו שוב');
+      } finally {
+        btn.classList.remove('loading');
+        btn.disabled = false;
+      }
+    }
+
+    function showThankYou() {
+      document.getElementById('formSection').style.display = 'none';
+      document.getElementById('configWarning').style.display = 'none';
+      const thankYou = document.getElementById('thankYou');
+      const icon = document.getElementById('thankIcon');
+      const title = document.getElementById('thankTitle');
+      const message = document.getElementById('thankMessage');
+
+      if (attending) {
+        icon.className = 'check-icon confirmed';
+        icon.innerHTML = '&#10003;';
+        title.textContent = 'נתראה בחתונה!';
+        message.textContent = 'האישור התקבל, שמחים שאתם מגיעים';
+        launchConfetti();
+      } else {
+        icon.className = 'check-icon declined';
+        icon.innerHTML = '&#10007;';
+        title.textContent = 'חבל שלא תגיעו';
+        message.textContent = 'התשובה נרשמה, אולי בפעם הבאה';
+      }
+
+      thankYou.classList.add('show');
+    }
+
+    function resetForm() {
+      attending = null;
+      document.getElementById('formSection').style.display = 'block';
+      document.getElementById('thankYou').classList.remove('show');
+      document.getElementById('btnComing').classList.remove('active');
+      document.getElementById('btnNotComing').classList.remove('active');
+      document.getElementById('formFields').classList.add('hidden');
+      document.getElementById('formFields').classList.remove('visible');
+      document.getElementById('submitBtn').style.display = 'none';
+      document.getElementById('guestName').value = '';
+      document.getElementById('plates').value = 1;
+      document.getElementById('errorMsg').classList.remove('show');
+
+      if (!CONFIG.SCRIPT_URL) {
+        document.getElementById('configWarning').classList.add('show');
+      }
+    }
+
+    function showError(msg) {
+      const el = document.getElementById('errorMsg');
+      el.textContent = msg;
+      el.classList.add('show');
+      setTimeout(() => el.classList.remove('show'), 5000);
+    }
+
+    function launchConfetti() {
+      const container = document.getElementById('confetti');
+      const colors = ['#c9a96e', '#e8d5a8', '#4a7c59', '#f5f0e8', '#a07d3a', '#fff'];
+      for (let i = 0; i < 60; i++) {
+        const piece = document.createElement('div');
+        piece.className = 'confetti-piece';
+        piece.style.left = Math.random() * 100 + '%';
+        piece.style.backgroundColor = colors[Math.floor(Math.random() * colors.length)];
+        piece.style.width = (Math.random() * 8 + 6) + 'px';
+        piece.style.height = (Math.random() * 8 + 6) + 'px';
+        piece.style.borderRadius = Math.random() > 0.5 ? '50%' : '2px';
+        piece.style.animationDuration = (Math.random() * 2 + 2) + 's';
+        piece.style.animationDelay = (Math.random() * 1.5) + 's';
+        container.appendChild(piece);
+      }
+      setTimeout(() => { container.innerHTML = ''; }, 5000);
+    }
+
+    init();
+  </script>
+</body>
+</html>

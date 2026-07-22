@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>דשבורד ניהול אישורים</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="bg-pattern"></div>
+
+  <div class="dashboard">
+    <!-- Header -->
+    <div class="dash-header">
+      <h1>דשבורד ניהול אישורים</h1>
+      <p class="subtitle" id="eventSubtitle"></p>
+      <div class="refresh-indicator">
+        <span class="refresh-dot"></span>
+        <span>מתעדכן אוטומטית</span>
+        <span id="lastUpdate"></span>
+      </div>
+    </div>
+
+    <!-- Config Warning -->
+    <div class="config-warning" id="configWarning" style="margin-bottom:24px">
+      <strong>שימו לב:</strong> המערכת עדיין לא מחוברת ל-Google Sheets.<br>
+      יש להגדיר את כתובת ה-Script בקובץ <code>config.js</code>.<br>
+      ראו הוראות בקובץ <code>apps-script.gs</code>.
+    </div>
+
+    <!-- Stats -->
+    <div class="stats-grid">
+      <div class="stat-card glass">
+        <div class="stat-number" id="totalGuests">0</div>
+        <div class="stat-label">סה"כ נרשמו</div>
+      </div>
+      <div class="stat-card glass success">
+        <div class="stat-number" id="totalComing">0</div>
+        <div class="stat-label">מגיעים</div>
+      </div>
+      <div class="stat-card glass error">
+        <div class="stat-number" id="totalNotComing">0</div>
+        <div class="stat-label">לא מגיעים</div>
+      </div>
+      <div class="stat-card glass">
+        <div class="stat-number" id="totalPlates">0</div>
+        <div class="stat-label">מנות</div>
+      </div>
+    </div>
+
+    <!-- Controls -->
+    <div class="table-controls">
+      <input type="text" class="search-input" id="searchInput" placeholder="חיפוש לפי שם..." oninput="filterTable()">
+      <div class="filter-btns">
+        <button class="filter-btn active" onclick="setFilter('all')" id="filterAll">הכל</button>
+        <button class="filter-btn" onclick="setFilter('coming')" id="filterComing">מגיעים</button>
+        <button class="filter-btn" onclick="setFilter('not-coming')" id="filterNotComing">לא מגיעים</button>
+      </div>
+    </div>
+
+    <!-- Loading -->
+    <div class="loading-overlay show" id="loading">
+      <div class="loading-spinner"></div>
+      <p>טוען נתונים...</p>
+    </div>
+
+    <!-- Table -->
+    <div class="table-container glass" id="tableContainer" style="display:none">
+      <table class="rsvp-table">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>שם</th>
+            <th>מנות</th>
+            <th>סטטוס</th>
+            <th>תאריך</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody id="tableBody"></tbody>
+      </table>
+    </div>
+
+    <!-- Empty State -->
+    <div class="empty-state" id="emptyState" style="display:none">
+      <div class="empty-icon">&#128141;</div>
+      <p>עדיין אין אישורי הגעה</p>
+      <p style="font-size:14px;margin-top:4px">שלחו את הקישור לאורחים כדי להתחיל</p>
+    </div>
+
+    <!-- Actions -->
+    <div class="actions-bar" style="margin-top:24px">
+      <button class="action-btn" onclick="refreshData()">&#8635; רענון</button>
+      <button class="action-btn" onclick="exportCSV()">&#128229; ייצוא CSV</button>
+      <button class="action-btn primary" onclick="copyRSVPLink()">&#128279; העתקת קישור RSVP</button>
+    </div>
+  </div>
+
+  <script src="config.js"></script>
+  <script>
+    let allData = [];
+    let currentFilter = 'all';
+    let refreshTimer = null;
+
+    function init() {
+      const subtitle = document.getElementById('eventSubtitle');
+      const parts = [];
+      if (CONFIG.GROOM_NAME && CONFIG.BRIDE_NAME) {
+        parts.push(CONFIG.GROOM_NAME + ' & ' + CONFIG.BRIDE_NAME);
+      }
+      if (CONFIG.WEDDING_DATE) parts.push(CONFIG.WEDDING_DATE);
+      subtitle.textContent = parts.join(' | ');
+
+      if (!CONFIG.SCRIPT_URL) {
+        document.getElementById('configWarning').classList.add('show');
+        document.getElementById('loading').classList.remove('show');
+        showDemoData();
+        return;
+      }
+
+      document.getElementById('configWarning').style.display = 'none';
+      refreshData();
+      if (CONFIG.REFRESH_INTERVAL > 0) {
+        refreshTimer = setInterval(refreshData, CONFIG.REFRESH_INTERVAL);
+      }
+    }
+
+    async function refreshData() {
+      try {
+        const params = new URLSearchParams({ action: 'list' });
+        const response = await fetch(CONFIG.SCRIPT_URL + '?' + params.toString());
+        const result = await response.json();
+
+        if (result.success) {
+          allData = result.data || [];
+          renderAll();
+        }
+      } catch (err) {
+        console.error('Failed to fetch data:', err);
+      }
+
+      document.getElementById('loading').classList.remove('show');
+      updateLastRefresh();
+    }
+
+    function showDemoData() {
+      allData = [
+        { name: 'דוגמה - דוד כהן', plates: 3, attending: 'מגיע', date: '22/07/2026 10:30' },
+        { name: 'דוגמה - שרה לוי', plates: 2, attending: 'מגיע', date: '22/07/2026 11:15' },
+        { name: 'דוגמה - יוסי מזרחי', plates: 0, attending: 'לא מגיע', date: '22/07/2026 12:00' },
+      ];
+      renderAll();
+    }
+
+    function renderAll() {
+      updateStats();
+      filterTable();
+    }
+
+    function updateStats() {
+      const coming = allData.filter(r => r.attending === 'מגיע');
+      const notComing = allData.filter(r => r.attending === 'לא מגיע');
+      const totalPlates = coming.reduce((sum, r) => sum + (parseInt(r.plates) || 0), 0);
+
+      document.getElementById('totalGuests').textContent = allData.length;
+      document.getElementById('totalComing').textContent = coming.length;
+      document.getElementById('totalNotComing').textContent = notComing.length;
+      document.getElementById('totalPlates').textContent = totalPlates;
+    }
+
+    function filterTable() {
+      const search = document.getElementById('searchInput').value.trim().toLowerCase();
+      let filtered = allData;
+
+      if (currentFilter === 'coming') {
+        filtered = filtered.filter(r => r.attending === 'מגיע');
+      } else if (currentFilter === 'not-coming') {
+        filtered = filtered.filter(r => r.attending === 'לא מגיע');
+      }
+
+      if (search) {
+        filtered = filtered.filter(r => r.name.toLowerCase().includes(search));
+      }
+
+      renderTable(filtered);
+    }
+
+    function setFilter(filter) {
+      currentFilter = filter;
+      document.querySelectorAll('.filter-btn').forEach(btn => btn.classList.remove('active'));
+      document.getElementById('filter' + capitalize(filter)).classList.add('active');
+      filterTable();
+    }
+
+    function capitalize(str) {
+      if (str === 'all') return 'All';
+      if (str === 'coming') return 'Coming';
+      if (str === 'not-coming') return 'NotComing';
+      return str;
+    }
+
+    function renderTable(data) {
+      const container = document.getElementById('tableContainer');
+      const emptyState = document.getElementById('emptyState');
+      const tbody = document.getElementById('tableBody');
+
+      if (data.length === 0) {
+        container.style.display = 'none';
+        emptyState.style.display = 'block';
+        return;
+      }
+
+      container.style.display = 'block';
+      emptyState.style.display = 'none';
+
+      tbody.innerHTML = data.map((row, i) => {
+        const isComing = row.attending === 'מגיע';
+        const statusClass = isComing ? 'confirmed' : 'declined';
+        const statusIcon = isComing ? '&#10003;' : '&#10007;';
+        const globalIndex = allData.indexOf(row);
+
+        return '<tr>' +
+          '<td>' + (i + 1) + '</td>' +
+          '<td><strong>' + escapeHtml(row.name) + '</strong></td>' +
+          '<td>' + (isComing ? row.plates : '-') + '</td>' +
+          '<td><span class="status-badge ' + statusClass + '">' + statusIcon + ' ' + row.attending + '</span></td>' +
+          '<td style="font-size:13px;color:var(--text-light)">' + (row.date || '') + '</td>' +
+          '<td><button class="delete-btn" onclick="deleteRow(' + globalIndex + ')" title="מחיקה">&#128465;</button></td>' +
+          '</tr>';
+      }).join('');
+    }
+
+    async function deleteRow(index) {
+      if (!confirm('למחוק את האישור של ' + allData[index].name + '?')) return;
+
+      if (!CONFIG.SCRIPT_URL) {
+        allData.splice(index, 1);
+        renderAll();
+        return;
+      }
+
+      try {
+        const params = new URLSearchParams({
+          action: 'delete',
+          row: index + 2
+        });
+        const response = await fetch(CONFIG.SCRIPT_URL + '?' + params.toString());
+        const result = await response.json();
+        if (result.success) {
+          await refreshData();
+        }
+      } catch (err) {
+        alert('שגיאה במחיקה');
+      }
+    }
+
+    function exportCSV() {
+      if (allData.length === 0) return;
+
+      const bom = '﻿';
+      const headers = ['שם', 'מנות', 'סטטוס', 'תאריך'];
+      const rows = allData.map(r => [
+        r.name, r.plates, r.attending, r.date || ''
+      ].map(v => '"' + String(v).replace(/"/g, '""') + '"').join(','));
+
+      const csv = bom + headers.join(',') + '\n' + rows.join('\n');
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'rsvp-list.csv';
+      a.click();
+      URL.revokeObjectURL(url);
+    }
+
+    function copyRSVPLink() {
+      const link = window.location.href.replace('dashboard.html', 'index.html').replace('dashboard', '');
+      navigator.clipboard.writeText(link).then(() => {
+        const btn = event.target.closest('.action-btn');
+        const original = btn.innerHTML;
+        btn.innerHTML = '&#10003; הקישור הועתק!';
+        setTimeout(() => { btn.innerHTML = original; }, 2000);
+      });
+    }
+
+    function updateLastRefresh() {
+      const now = new Date();
+      const time = now.toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' });
+      document.getElementById('lastUpdate').textContent = '| עדכון אחרון: ' + time;
+    }
+
+    function escapeHtml(str) {
+      const div = document.createElement('div');
+      div.textContent = str;
+      return div.innerHTML;
+    }
+
+    init();
+  </script>
+</body>
+</html>
