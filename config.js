@@ -4,7 +4,7 @@ const CONFIG = {
   // ========================================
 
   // כתובת ה-Google Apps Script (ראה הוראות ב-apps-script.gs)
-  SCRIPT_URL: '',
+  SCRIPT_URL: 'https://script.google.com/macros/s/AKfycbzBQOc7Mq_8PHUpvZ6e3rEazhkRy-6Y5KSJ1VNP-Kt2_KEe23EC6m2S8uZP0Hmx3Sxq/exec',
 
   // שמות בני הזוג
   GROOM_NAME: 'החתן',
